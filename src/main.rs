@@ -19,8 +19,13 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    ListPlaylists,
-    GetPlaylist { rating_key: String },
+    ListPlaylists {
+        #[arg(long)]
+        only: Option<String>,
+    },
+    GetPlaylist {
+        rating_key: String,
+    },
 }
 
 fn main() {
@@ -30,7 +35,7 @@ fn main() {
     let plex_client = PlexClient::new(args.server, args.token);
 
     match args.command {
-        Some(Command::ListPlaylists) => list_playlists(plex_client),
+        Some(Command::ListPlaylists { only }) => list_playlists(plex_client, only),
         Some(Command::GetPlaylist { rating_key }) => get_playlist(plex_client, rating_key),
         None => error!("No command provided"),
     }
@@ -40,11 +45,13 @@ fn get_playlist(plex_client: PlexClient, rating_key: String) {
     plex_client.get_playlist(rating_key);
 }
 
-fn list_playlists(plex_client: PlexClient) {
+fn list_playlists(plex_client: PlexClient, only: Option<String>) {
     let container = plex_client.list_playlists();
     println!("Found {} playlists", container.size);
     for playlist in container.playlists {
-        println!("{}", playlist.to_string());
+        if playlist.matches(&only) {
+            println!("{}", playlist.to_string());
+        }
     }
 }
 

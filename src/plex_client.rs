@@ -42,12 +42,6 @@ pub struct Playlist {
     #[serde(rename = "@key")]
     pub key: String,
 
-    #[serde(rename = "@guid")]
-    pub guid: String,
-
-    #[serde(rename = "@type")]
-    pub item_type: String,
-
     #[serde(rename = "@summary")]
     pub summary: String,
 
@@ -58,13 +52,13 @@ pub struct Playlist {
     pub playlist_type: String,
 
     #[serde(rename = "@leafCount")]
-    pub leaf_count: String,
+    pub leaf_count: u32,
 
     #[serde(rename = "@addedAt")]
-    pub added_at: String,
+    pub added_at: u32,
 
     #[serde(rename = "@updatedAt")]
-    pub updated_at: String,
+    pub updated_at: u32,
 }
 
 impl Playlist {
@@ -77,6 +71,13 @@ impl Playlist {
             output = format!("{} [Smart]", output)
         }
         format!("{} [{} tracks]", output, self.leaf_count)
+    }
+
+    pub fn matches(&self, only: &Option<String>) -> bool {
+        match only {
+            None => true,
+            Some(only_filter) => *only_filter == self.playlist_type,
+        }
     }
 }
 
