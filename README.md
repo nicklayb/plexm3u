@@ -1,6 +1,6 @@
 # Plexm3u
 
-Client that generates M3U playlist from a Plex server.
+Client that generates M3U playlist from a Plex server. Keep one playlist source of truth and sync them everywhere
 
 ### My (quite niche) use case for this
 
