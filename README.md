@@ -10,6 +10,8 @@ My use case is that my car (a 2019 Audi e-tron) has an amazing audio system. The
 
 So this tool allows me to easily sync my playlists from Plexamp straight to my USB drive that has all my music.
 
+**Note**: This was only tested with my car's stereo. So maybe there can be issues with your particular use case
+
 ## Usage
 
 The tool supports various command:
