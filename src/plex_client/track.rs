@@ -1,4 +1,4 @@
-use crate::plex_client::deserializer::deserialize_integer_bool;
+use crate::{m3u::Item, plex_client::deserializer::deserialize_integer_bool};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -65,8 +65,8 @@ impl MediaContainer {
         &self,
         rewrite_from: Option<String>,
         rewrite_to: Option<String>,
-    ) -> Vec<String> {
-        let mut files = vec![];
+    ) -> Vec<Item> {
+        let mut files: Vec<Item> = vec![];
         for track in self.tracks.iter() {
             for file in track.files(&rewrite_from, &rewrite_to).iter() {
                 files.push(file.clone());
@@ -78,8 +78,8 @@ impl MediaContainer {
 }
 
 impl Track {
-    pub fn files(&self, rewrite_from: &Option<String>, rewrite_to: &Option<String>) -> Vec<String> {
-        let mut files = vec![];
+    pub fn files(&self, rewrite_from: &Option<String>, rewrite_to: &Option<String>) -> Vec<Item> {
+        let mut files: Vec<Item> = vec![];
         for media in self.medias.iter() {
             for part in media.parts.iter() {
                 let mut file_name = part.file.clone();
@@ -90,7 +90,8 @@ impl Track {
                     }
                     None => file_name,
                 };
-                files.push(file_name)
+                let item = Item::new(file_name);
+                files.push(item)
             }
         }
 
