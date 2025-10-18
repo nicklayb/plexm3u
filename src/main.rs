@@ -236,14 +236,14 @@ fn get_playlist(plex_client: PlexClient, arguments: GetPlaylistArguments) {
     if track_count > 0 {
         println!("{} tracks", track_count);
         for track in container.tracks.iter() {
-            println!("{}", track.full_title())
+            track.print_informations();
         }
     }
 
     if video_count > 0 {
         println!("{} videos", video_count);
         for video in container.videos.iter() {
-            println!("{}", video.full_title())
+            video.print_informations();
         }
     }
 }

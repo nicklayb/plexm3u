@@ -16,6 +16,11 @@ What I recommend to do (if like me you wanna sync all your library), is the foll
 
 The tool supports various command:
 
+- `list-playlists`: Lists the playlists on the server with their "Rating Key". This key will be necessary for any action on the playlist.
+- `get-playlist`: Shows the content of a playlist.
+- `dump-playlist`: Dumps an m3u file of the playlist.
+- `verify-m3u`: Verifies that the file listed in an m3u really exists. A `--fix` option allow to download the missing file from the server.
+
 ### List playlists
 
 ```

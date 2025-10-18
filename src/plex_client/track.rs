@@ -17,6 +17,8 @@ pub struct MediaContainer {
 }
 #[derive(Debug, Deserialize)]
 pub struct Video {
+    #[serde(rename = "@ratingKey")]
+    pub rating_key: u32,
     #[serde(rename = "@title")]
     pub title: String,
     #[serde(rename = "@parentTitle")]
@@ -29,6 +31,8 @@ pub struct Video {
 
 #[derive(Debug, Deserialize)]
 pub struct Track {
+    #[serde(rename = "@ratingKey")]
+    pub rating_key: u32,
     #[serde(rename = "@title")]
     pub title: String,
     #[serde(rename = "@parentTitle")]
@@ -41,6 +45,8 @@ pub struct Track {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Media {
+    #[serde(rename = "@id")]
+    pub id: u32,
     #[serde(rename = "Part")]
     pub parts: Vec<Part>,
 }
@@ -63,8 +69,26 @@ impl WithMetadata for MediaContainer {
 }
 
 pub trait WithMedia {
-    fn full_title(&self) -> String;
+    fn key(&self) -> String;
+    fn informations(&self) -> Vec<(&str, Option<String>)>;
+
     fn medias(&self) -> Vec<Media>;
+
+    fn print_informations(&self) {
+        println!("\nKey: {}", self.key());
+        for (title, value) in self.informations() {
+            if let Some(inner_value) = value {
+                println!("{}: {}", title, inner_value)
+            }
+        }
+        println!("Medias:");
+        for media in self.medias() {
+            println!("- ID: {}", media.id);
+            for part in media.parts {
+                println!("  {} ({})", part.file, part.key);
+            }
+        }
+    }
 
     fn files(&self, rewrite_from: &Option<String>, rewrite_to: &Option<String>) -> Vec<Item> {
         let mut files: Vec<Item> = vec![];
@@ -92,13 +116,17 @@ impl WithMedia for Track {
     fn medias(&self) -> Vec<Media> {
         self.medias.clone()
     }
-    fn full_title(&self) -> String {
-        format!(
-            "{} - {} - {}",
-            self.grandparent_title.clone().unwrap_or("".to_string()),
-            self.parent_title.clone().unwrap_or("".to_string()),
-            self.title
-        )
+
+    fn key(&self) -> String {
+        self.rating_key.to_string()
+    }
+
+    fn informations(&self) -> Vec<(&str, Option<String>)> {
+        vec![
+            ("Title", Some(self.title.clone())),
+            ("Artist", self.grandparent_title.clone()),
+            ("Album", self.parent_title.clone()),
+        ]
     }
 }
 
@@ -106,13 +134,17 @@ impl WithMedia for Video {
     fn medias(&self) -> Vec<Media> {
         self.medias.clone()
     }
-    fn full_title(&self) -> String {
-        format!(
-            "{} - {} - {}",
-            self.grandparent_title.clone().unwrap_or("".to_string()),
-            self.parent_title.clone().unwrap_or("".to_string()),
-            self.title
-        )
+
+    fn key(&self) -> String {
+        self.rating_key.to_string()
+    }
+
+    fn informations(&self) -> Vec<(&str, Option<String>)> {
+        vec![
+            ("Title", Some(self.title.clone())),
+            ("Show", self.grandparent_title.clone()),
+            ("Season", self.parent_title.clone()),
+        ]
     }
 }
 
