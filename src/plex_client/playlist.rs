@@ -18,12 +18,6 @@ pub struct Playlist {
     #[serde(rename = "@title")]
     pub title: String,
 
-    #[serde(rename = "@key")]
-    pub key: String,
-
-    #[serde(rename = "@summary")]
-    pub summary: String,
-
     #[serde(rename = "@smart", deserialize_with = "deserialize_integer_bool")]
     pub smart: bool,
 
@@ -32,12 +26,6 @@ pub struct Playlist {
 
     #[serde(rename = "@leafCount")]
     pub leaf_count: u32,
-
-    #[serde(rename = "@addedAt")]
-    pub added_at: u32,
-
-    #[serde(rename = "@updatedAt")]
-    pub updated_at: u32,
 }
 
 pub struct PlaylistFilter {

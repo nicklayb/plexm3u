@@ -1,3 +1,6 @@
+use std::fs;
+use std::fs::File;
+use std::io;
 use std::path::Path;
 
 use clap::{Args, Parser, Subcommand};
@@ -5,7 +8,11 @@ use log::LevelFilter;
 use log::error;
 use plex_client::PlexClient;
 
+use crate::m3u::Item;
+use crate::m3u::M3U;
+use crate::m3u::WithMetadata;
 use crate::plex_client::playlist::PlaylistFilter;
+use crate::plex_client::track::WithMedia;
 
 mod m3u;
 mod plex_client;
@@ -60,6 +67,12 @@ struct VerifyM3uArguments {
     file: String,
     #[arg(long, short)]
     path: Option<String>,
+    #[arg(long)]
+    fix: bool,
+    #[arg(short, long)]
+    token: Option<String>,
+    #[arg(short, long)]
+    server: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -108,16 +121,22 @@ fn verify_m3u(arguments: VerifyM3uArguments) {
         .map(Path::new)
         .unwrap_or_else(|| Path::new(&arguments.file).parent().unwrap());
 
-    let read_tracks = m3u::read(&arguments.file);
+    let should_fix = match (arguments.server.clone(), arguments.fix) {
+        (Some(_), true) => true,
+        (None, true) => {
+            panic!("Must provide `--server` (and maybe `--token`) to be able to fix missing tracks")
+        }
+        _ => false,
+    };
+
+    let read_m3u = m3u::read(&arguments.file);
     let mut missing_tracks = vec![];
     let mut total_count = 0;
-    let mut missing_count = 0;
-    match read_tracks {
-        Ok(tracks) => {
+    match read_m3u {
+        Ok(M3U { tracks, .. }) => {
             for track in tracks.iter() {
                 total_count += 1;
                 if !track.exists_at(root_path) {
-                    missing_count += 1;
                     missing_tracks.push(track.clone());
                 }
             }
@@ -128,13 +147,45 @@ fn verify_m3u(arguments: VerifyM3uArguments) {
     if missing_tracks.is_empty() {
         println!("All tracks ({}) exists", total_count)
     } else {
-        println!(
-            "The following tracks ({} out of {}) could not be found at {:?}",
-            missing_count, total_count, root_path
-        );
+        let missing_track_count = missing_tracks.len();
         for track in missing_tracks {
-            println!("\t{}", track.path)
+            println!("- {}", track.path);
+            if should_fix {
+                println!("\tDownloading...");
+                let plex_client =
+                    PlexClient::new(arguments.server.clone().unwrap(), arguments.token.clone());
+                if !download_part(plex_client, track.clone(), root_path) {
+                    println!("\tCould not download {}", track.path.clone());
+                }
+            }
         }
+
+        println!(
+            "\nMissing tracks at {:?}: {} / {}",
+            root_path, missing_track_count, total_count,
+        );
+    }
+}
+
+fn download_part(plex_client: PlexClient, track: Item, root_path: &Path) -> bool {
+    match track.track_key() {
+        Some(key) => {
+            let mut response = plex_client.get_part(key);
+            let full_path = track.full_path(root_path);
+            fs::create_dir_all(full_path.parent().unwrap()).expect("Folder could not be created");
+            let mut out = File::create(full_path.clone()).expect("File could not be created");
+            match io::copy(&mut response, &mut out) {
+                Ok(_) => {
+                    println!("\tCreated {:?}", full_path);
+                    true
+                }
+                Err(error) => {
+                    eprintln!("\tError occurred while copying {}", error);
+                    false
+                }
+            }
+        }
+        None => false,
     }
 }
 
@@ -145,15 +196,33 @@ fn dump_playlist(plex_client: PlexClient, arguments: DumpPlaylistArguments) {
         panic!("Requires at least `--file [FILE]` or `--stdout`")
     }
     let container = plex_client.get_playlist(arguments.rating_key.clone());
-    let tracks = container.track_files(arguments.rewrite_from, arguments.rewrite_to);
+    let tracks =
+        container.track_files(arguments.rewrite_from.clone(), arguments.rewrite_to.clone());
     if let Some(file) = arguments.file {
-        println!("Writing {}", file);
-        if let Err(error) = m3u::write(file.clone(), tracks.clone()) {
-            panic!("Error writing {}: {}", file, error);
+        let destination_folder = Path::new(&file);
+
+        let destination_file = if destination_folder.is_dir() {
+            let destination_file = format!("{}.m3u", container.title);
+            Path::new(&destination_folder).join(destination_file)
+        } else {
+            destination_folder.to_path_buf()
+        };
+        println!("Writing {:?}", destination_file);
+        let mut metadata = container.metadata();
+        if let Some(rewrite_from) = arguments.rewrite_from {
+            metadata.push(m3u::Metadata::RewriteFrom(rewrite_from.clone()))
+        }
+        if let Some(rewrite_to) = arguments.rewrite_to {
+            metadata.push(m3u::Metadata::RewriteTo(rewrite_to.clone()))
+        }
+
+        let m3u = M3U::new(tracks.clone(), metadata);
+        if let Err(error) = m3u::write(destination_file.clone(), m3u) {
+            panic!("Error writing {:?}: {}", destination_file, error);
         }
     }
     if arguments.stdout {
-        for track in &tracks {
+        for track in tracks.clone() {
             println!("{:?}", track);
         }
     }
@@ -161,7 +230,22 @@ fn dump_playlist(plex_client: PlexClient, arguments: DumpPlaylistArguments) {
 
 fn get_playlist(plex_client: PlexClient, arguments: GetPlaylistArguments) {
     let container = plex_client.get_playlist(arguments.rating_key);
-    println!("{:?}", container);
+    let track_count = container.tracks.len();
+    let video_count = container.videos.len();
+
+    if track_count > 0 {
+        println!("{} tracks", track_count);
+        for track in container.tracks.iter() {
+            println!("{}", track.full_title())
+        }
+    }
+
+    if video_count > 0 {
+        println!("{} videos", video_count);
+        for video in container.videos.iter() {
+            println!("{}", video.full_title())
+        }
+    }
 }
 
 fn list_playlists(plex_client: PlexClient, playlists_filter_arguments: PlaylistsFilterArguments) {

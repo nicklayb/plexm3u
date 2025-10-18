@@ -3,5 +3,4 @@ pub mod playlist;
 pub mod plex_client;
 pub mod track;
 
-pub use playlist::PlaylistFilter;
 pub use plex_client::PlexClient;
