@@ -15,6 +15,7 @@ pub struct MediaContainer {
     #[serde(rename = "@title")]
     pub title: String,
 }
+
 #[derive(Debug, Deserialize)]
 pub struct Video {
     #[serde(rename = "@ratingKey")]
