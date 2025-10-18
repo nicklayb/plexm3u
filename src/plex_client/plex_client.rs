@@ -5,6 +5,7 @@ use crate::plex_client::playlist::MediaContainer as PlaylistMediaContainer;
 use crate::plex_client::track::MediaContainer as TrackMediaContainer;
 use log::info;
 
+#[derive(Clone)]
 pub struct PlexClient {
     pub server: String,
     token: Option<String>,

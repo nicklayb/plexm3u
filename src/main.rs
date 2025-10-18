@@ -75,12 +75,30 @@ struct VerifyM3uArguments {
     server: Option<String>,
 }
 
+#[derive(Debug, Args)]
+struct SyncArguments {
+    rating_keys: Vec<String>,
+    #[arg(long, short)]
+    path: String,
+    #[arg(short, long)]
+    server: String,
+    #[arg(short, long)]
+    token: Option<String>,
+    #[arg(long)]
+    rewrite_from: Option<String>,
+    #[arg(long)]
+    rewrite_to: Option<String>,
+    #[arg(long)]
+    fix: bool,
+}
+
 #[derive(Subcommand)]
 enum Command {
     ListPlaylists(PlaylistsFilterArguments),
     GetPlaylist(GetPlaylistArguments),
     DumpPlaylist(DumpPlaylistArguments),
     VerifyM3u(VerifyM3uArguments),
+    Sync(SyncArguments),
 }
 
 fn main() {
@@ -107,9 +125,37 @@ fn main() {
                 dump_playlist_arguments.server.clone(),
                 dump_playlist_arguments.token.clone(),
             );
-            dump_playlist(plex_client, dump_playlist_arguments)
+            dump_playlist(plex_client, dump_playlist_arguments);
         }
         Some(Command::VerifyM3u(verify_m3u_arguments)) => verify_m3u(verify_m3u_arguments),
+        Some(Command::Sync(sync_arguments)) => {
+            let plex_client =
+                PlexClient::new(sync_arguments.server.clone(), sync_arguments.token.clone());
+            for rating_key in sync_arguments.rating_keys {
+                let destination_file = dump_playlist(
+                    plex_client.clone(),
+                    DumpPlaylistArguments {
+                        server: sync_arguments.server.clone(),
+                        token: sync_arguments.token.clone(),
+                        rating_key: rating_key.clone(),
+                        rewrite_from: sync_arguments.rewrite_from.clone(),
+                        rewrite_to: sync_arguments.rewrite_to.clone(),
+                        file: Some(sync_arguments.path.clone()),
+                        stdout: false,
+                    },
+                );
+                match destination_file {
+                    Some(file) => verify_m3u(VerifyM3uArguments {
+                        file: file,
+                        path: None,
+                        fix: sync_arguments.fix,
+                        server: Some(sync_arguments.server.clone()),
+                        token: sync_arguments.token.clone(),
+                    }),
+                    None => panic!("Error occured dumping rating key {}", rating_key.clone()),
+                }
+            }
+        }
         None => error!("No command provided"),
     }
 }
@@ -189,7 +235,7 @@ fn download_part(plex_client: PlexClient, track: Item, root_path: &Path) -> bool
     }
 }
 
-fn dump_playlist(plex_client: PlexClient, arguments: DumpPlaylistArguments) {
+fn dump_playlist(plex_client: PlexClient, arguments: DumpPlaylistArguments) -> Option<String> {
     if let None = arguments.file
         && !arguments.stdout
     {
@@ -198,6 +244,11 @@ fn dump_playlist(plex_client: PlexClient, arguments: DumpPlaylistArguments) {
     let container = plex_client.get_playlist(arguments.rating_key.clone());
     let tracks =
         container.track_files(arguments.rewrite_from.clone(), arguments.rewrite_to.clone());
+    if arguments.stdout {
+        for track in tracks.clone() {
+            println!("{:?}", track);
+        }
+    }
     if let Some(file) = arguments.file {
         let destination_folder = Path::new(&file);
 
@@ -220,11 +271,9 @@ fn dump_playlist(plex_client: PlexClient, arguments: DumpPlaylistArguments) {
         if let Err(error) = m3u::write(destination_file.clone(), m3u) {
             panic!("Error writing {:?}: {}", destination_file, error);
         }
-    }
-    if arguments.stdout {
-        for track in tracks.clone() {
-            println!("{:?}", track);
-        }
+        destination_file.to_str().map(|str| str.to_string())
+    } else {
+        None
     }
 }
 

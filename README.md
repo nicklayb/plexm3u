@@ -1,6 +1,8 @@
 # Plexm3u
 
-Client that generates M3U playlist from a Plex server. Keep one playlist source of truth and sync them everywhere
+Client that generates M3U playlist from a Plex server. Keep one playlist source of truth and sync them everywhere.
+
+Works for both video and audio!
 
 ## Recommended usage
 
@@ -16,10 +18,19 @@ What I recommend to do (if like me you wanna sync all your library), is the foll
 
 The tool supports various command:
 
+- `sync`: Combines `dump-playlist` and `verify-m3u`. With the `--fix` option the client can download missing songs. (Shouldn't be necessary if you followed the recommended usage)
 - `list-playlists`: Lists the playlists on the server with their "Rating Key". This key will be necessary for any action on the playlist.
 - `get-playlist`: Shows the content of a playlist.
 - `dump-playlist`: Dumps an m3u file of the playlist.
 - `verify-m3u`: Verifies that the file listed in an m3u really exists. A `--fix` option allow to download the missing file from the server.
+
+### Sync
+
+```
+plexm3u sync --server $PLEX_SERVER --token $PLEX_TOKEN --rewrite-from /data/onmyserver --rewrite-to Music -p /media/usb [$PLAYLIST...] 
+```
+
+The sync command can sync multiple playlist at once. After dumping the playlist, a verification is done that the track do exists. In case of missing file, you can use `--fix` to download them.
 
 ### List playlists
 
@@ -97,7 +108,7 @@ I've always loved to have my music on an actual device that doesn't depend on th
 
 My use case is that my car (a 2019 Audi e-tron) has an amazing audio system. The MMI is really nice to use, you can browse tracks with the steering wheel and even add shortcuts in the climate control to start playlists or artists (I obviously have a shortcut that starts Rush songs on shuffle).
 
-So this tool allows me to easily sync my playlists from Plexamp straight to my USB drive that has all my music.
+So this tool allows me to easily sync my playlists from Plexamp straight to my USB drive that has all my music. Not only music! You can also sync video files. In my case, the radio can also play video, it just cut the video feed when driving so we can easily watch (listen) comedy specials.
 
 **Note**: This was only tested with my car's stereo. So maybe there can be issues with your particular use case
 
