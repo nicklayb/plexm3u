@@ -25,6 +25,8 @@ pub struct Item {
 #[derive(Debug, Clone)]
 pub enum TrackData {
     Key(String),
+    FilePath(String),
+    ExtM3u(String, String),
 }
 
 #[derive(Debug)]
@@ -43,14 +45,27 @@ pub trait WithMetadata {
 pub struct M3UAttribute {
     key: String,
     value: String,
+    custom: bool,
 }
 
 impl M3UAttribute {
     pub fn new(key: String, value: String) -> M3UAttribute {
-        M3UAttribute { key, value }
+        M3UAttribute {
+            key,
+            value,
+            custom: true,
+        }
+    }
+    pub fn new_extm3u(key: String, value: String) -> M3UAttribute {
+        M3UAttribute {
+            key,
+            value,
+            custom: false,
+        }
     }
     pub fn to_string(&self) -> String {
-        format!("PLEXM3U_{}:{}", self.key, self.value)
+        let prefix = if self.custom { "PLEXM3U_" } else { "" };
+        format!("{}{}:{}", prefix, self.key, self.value)
     }
 }
 
@@ -58,12 +73,30 @@ impl TrackData {
     fn format(&self) -> M3UAttribute {
         match self {
             TrackData::Key(key) => M3UAttribute::new("TRACK_KEY".to_string(), key.clone()),
+            TrackData::FilePath(file_path) => {
+                M3UAttribute::new("FILE_PATH".to_string(), file_path.clone())
+            }
+            TrackData::ExtM3u(key, value) => M3UAttribute::new_extm3u(key.clone(), value.clone()),
         }
     }
 
     pub fn is_key(&self) -> bool {
         match self {
             TrackData::Key(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn parse_extm3u(input: String) -> Option<TrackData> {
+        let mut splitted = input.splitn(2, ":");
+        match (splitted.next(), splitted.next()) {
+            (Some("#EXTALB"), Some(album)) => {
+                Some(TrackData::ExtM3u("EXTALB".to_string(), album.to_string()))
+            }
+            (Some("#EXTART"), Some(artist)) => {
+                Some(TrackData::ExtM3u("EXTART".to_string(), artist.to_string()))
+            }
+            _ => None,
         }
     }
 }
@@ -114,10 +147,13 @@ impl Metadata {
                 (Some("TRACK_KEY"), Some(track_key)) => {
                     Some(Metadata::TrackData(TrackData::Key(track_key.to_string())))
                 }
+                (Some("FILE_PATH"), Some(file_path)) => Some(Metadata::TrackData(
+                    TrackData::FilePath(file_path.to_string()),
+                )),
                 _ => None,
             }
         } else {
-            None
+            TrackData::parse_extm3u(input).map(|track_data| Metadata::TrackData(track_data))
         }
     }
 }

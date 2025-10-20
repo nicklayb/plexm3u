@@ -79,6 +79,10 @@ In order to dump a playlist, I need to do
 plexm3u dump-playlist --server $SERVER -f /media/usb/playlist.m3u --rewrite-from "/music/iTunes" --rewrite-to "Music` [Rating key]
 ```
 
+#### As a stream playlist
+
+You can pass the `--stream` option which will output the remote path with your server's ip address. This will allow you to launch the playlist from VLC and listen to your music without even needing to open Plex.
+
 ### Verifying an M3u file
 
 Once the playlist is dumped you can verify that your drive indeed has the files. This can help showing disparity between your drive and what's on your server.

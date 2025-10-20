@@ -60,6 +60,11 @@ pub struct Part {
     pub file: String,
 }
 
+pub enum TrackPath {
+    File,
+    Key(String),
+}
+
 impl WithMetadata for MediaContainer {
     fn metadata(&self) -> Vec<Metadata> {
         vec![
@@ -74,6 +79,8 @@ pub trait WithMedia {
     fn informations(&self) -> Vec<(&str, Option<String>)>;
 
     fn medias(&self) -> Vec<Media>;
+
+    fn extra_metadata(&self) -> Vec<TrackData>;
 
     fn print_informations(&self) {
         println!("\nKey: {}", self.key());
@@ -91,11 +98,19 @@ pub trait WithMedia {
         }
     }
 
-    fn files(&self, rewrite_from: &Option<String>, rewrite_to: &Option<String>) -> Vec<Item> {
+    fn files(
+        &self,
+        rewrite_from: &Option<String>,
+        rewrite_to: &Option<String>,
+        track_path: &TrackPath,
+    ) -> Vec<Item> {
         let mut files: Vec<Item> = vec![];
         for media in self.medias().iter() {
             for part in media.parts.iter() {
-                let mut file_name = part.file.clone();
+                let mut file_name = match track_path {
+                    TrackPath::File => part.file.clone(),
+                    TrackPath::Key(base_host) => format!("{}{}", base_host, part.key.clone()),
+                };
                 file_name = match rewrite_from {
                     Some(string) => {
                         let to = rewrite_to.clone().unwrap_or("".to_string());
@@ -103,7 +118,12 @@ pub trait WithMedia {
                     }
                     None => file_name,
                 };
-                let metadata = vec![TrackData::Key(part.key.clone())];
+                let mut metadata = vec![
+                    TrackData::Key(part.key.clone()),
+                    TrackData::FilePath(part.file.clone()),
+                ];
+                let mut extra_metadata = self.extra_metadata();
+                metadata.append(&mut extra_metadata);
                 let item = Item::new(file_name, metadata);
                 files.push(item)
             }
@@ -120,6 +140,17 @@ impl WithMedia for Track {
 
     fn key(&self) -> String {
         self.rating_key.to_string()
+    }
+
+    fn extra_metadata(&self) -> Vec<TrackData> {
+        let mut metadata = vec![];
+        if let Some(artist) = self.grandparent_title.clone() {
+            metadata.push(TrackData::ExtM3u("EXTART".to_string(), artist.clone()))
+        }
+        if let Some(album) = self.parent_title.clone() {
+            metadata.push(TrackData::ExtM3u("EXTALB".to_string(), album.clone()))
+        }
+        metadata
     }
 
     fn informations(&self) -> Vec<(&str, Option<String>)> {
@@ -147,6 +178,17 @@ impl WithMedia for Video {
             ("Season", self.parent_title.clone()),
         ]
     }
+
+    fn extra_metadata(&self) -> Vec<TrackData> {
+        let mut metadata = vec![];
+        if let Some(artist) = self.grandparent_title.clone() {
+            metadata.push(TrackData::ExtM3u("EXTART".to_string(), artist.clone()))
+        }
+        if let Some(album) = self.parent_title.clone() {
+            metadata.push(TrackData::ExtM3u("EXTALB".to_string(), album.clone()))
+        }
+        metadata
+    }
 }
 
 impl MediaContainer {
@@ -154,15 +196,16 @@ impl MediaContainer {
         &self,
         rewrite_from: Option<String>,
         rewrite_to: Option<String>,
+        track_path: TrackPath,
     ) -> Vec<Item> {
         let mut files: Vec<Item> = vec![];
         for track in self.tracks.iter() {
-            for file in track.files(&rewrite_from, &rewrite_to).iter() {
+            for file in track.files(&rewrite_from, &rewrite_to, &track_path).iter() {
                 files.push(file.clone());
             }
         }
         for video in self.videos.iter() {
-            for file in video.files(&rewrite_from, &rewrite_to).iter() {
+            for file in video.files(&rewrite_from, &rewrite_to, &track_path).iter() {
                 files.push(file.clone());
             }
         }

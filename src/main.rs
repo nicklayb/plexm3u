@@ -12,6 +12,7 @@ use crate::m3u::Item;
 use crate::m3u::M3U;
 use crate::m3u::WithMetadata;
 use crate::plex_client::playlist::PlaylistFilter;
+use crate::plex_client::track::TrackPath;
 use crate::plex_client::track::WithMedia;
 
 mod m3u;
@@ -40,6 +41,8 @@ struct DumpPlaylistArguments {
     file: Option<String>,
     #[arg(long)]
     stdout: bool,
+    #[arg(long)]
+    stream: bool,
 }
 
 #[derive(Debug, Args)]
@@ -142,6 +145,7 @@ fn main() {
                         rewrite_to: sync_arguments.rewrite_to.clone(),
                         file: Some(sync_arguments.path.clone()),
                         stdout: false,
+                        stream: false,
                     },
                 );
                 match destination_file {
@@ -242,8 +246,16 @@ fn dump_playlist(plex_client: PlexClient, arguments: DumpPlaylistArguments) -> O
         panic!("Requires at least `--file [FILE]` or `--stdout`")
     }
     let container = plex_client.get_playlist(arguments.rating_key.clone());
-    let tracks =
-        container.track_files(arguments.rewrite_from.clone(), arguments.rewrite_to.clone());
+    let track_path = if arguments.stream {
+        TrackPath::Key(plex_client.server)
+    } else {
+        TrackPath::File
+    };
+    let tracks = container.track_files(
+        arguments.rewrite_from.clone(),
+        arguments.rewrite_to.clone(),
+        track_path,
+    );
     if arguments.stdout {
         for track in tracks.clone() {
             println!("{:?}", track);
