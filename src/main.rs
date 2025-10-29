@@ -9,8 +9,8 @@ use log::error;
 use plex_client::PlexClient;
 
 use crate::m3u::Item;
-use crate::m3u::M3U;
 use crate::m3u::WithMetadata;
+use crate::m3u::{M3U, Metadata};
 use crate::plex_client::playlist::PlaylistFilter;
 use crate::plex_client::track::WithMedia;
 
@@ -75,9 +75,9 @@ struct VerifyM3uArguments {
     server: Option<String>,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Clone, Args)]
 struct SyncArguments {
-    rating_keys: Vec<String>,
+    rating_keys_or_file: Vec<String>,
     #[arg(long, short)]
     path: String,
     #[arg(short, long)]
@@ -128,35 +128,57 @@ fn main() {
             dump_playlist(plex_client, dump_playlist_arguments);
         }
         Some(Command::VerifyM3u(verify_m3u_arguments)) => verify_m3u(verify_m3u_arguments),
-        Some(Command::Sync(sync_arguments)) => {
-            let plex_client =
-                PlexClient::new(sync_arguments.server.clone(), sync_arguments.token.clone());
-            for rating_key in sync_arguments.rating_keys {
-                let destination_file = dump_playlist(
-                    plex_client.clone(),
-                    DumpPlaylistArguments {
-                        server: sync_arguments.server.clone(),
-                        token: sync_arguments.token.clone(),
-                        rating_key: rating_key.clone(),
-                        rewrite_from: sync_arguments.rewrite_from.clone(),
-                        rewrite_to: sync_arguments.rewrite_to.clone(),
-                        file: Some(sync_arguments.path.clone()),
-                        stdout: false,
-                    },
-                );
-                match destination_file {
-                    Some(file) => verify_m3u(VerifyM3uArguments {
-                        file: file,
-                        path: None,
-                        fix: sync_arguments.fix,
-                        server: Some(sync_arguments.server.clone()),
-                        token: sync_arguments.token.clone(),
-                    }),
-                    None => panic!("Error occured dumping rating key {}", rating_key.clone()),
-                }
-            }
-        }
+        Some(Command::Sync(sync_arguments)) => sync(sync_arguments),
         None => error!("No command provided"),
+    }
+}
+
+fn sync(arguments: SyncArguments) {
+    let plex_client = PlexClient::new(arguments.server.clone(), arguments.token.clone());
+    for rating_key in arguments.rating_keys_or_file.clone() {
+        if rating_key.to_lowercase().ends_with(".m3u") {
+            if let Ok(file) = m3u::read(&rating_key)
+                && let Some(Metadata::RatingKey(rating_key)) = file.rating_key()
+            {
+                sync_playlist(
+                    plex_client.clone(),
+                    rating_key.to_string(),
+                    arguments.clone(),
+                )
+            } else {
+                error!(
+                    "Unable to read {}, check if file exists and has a Rating key",
+                    rating_key.clone()
+                )
+            }
+        } else {
+            sync_playlist(plex_client.clone(), rating_key, arguments.clone())
+        }
+    }
+}
+
+fn sync_playlist(plex_client: PlexClient, rating_key: String, arguments: SyncArguments) {
+    let destination_file = dump_playlist(
+        plex_client.clone(),
+        DumpPlaylistArguments {
+            server: arguments.server.clone(),
+            token: arguments.token.clone(),
+            rating_key: rating_key.clone(),
+            rewrite_from: arguments.rewrite_from.clone(),
+            rewrite_to: arguments.rewrite_to.clone(),
+            file: Some(arguments.path.clone()),
+            stdout: false,
+        },
+    );
+    match destination_file {
+        Some(file) => verify_m3u(VerifyM3uArguments {
+            file: file,
+            path: None,
+            fix: arguments.fix,
+            server: Some(arguments.server.clone()),
+            token: arguments.token.clone(),
+        }),
+        None => panic!("Error occured dumping rating key {}", rating_key.clone()),
     }
 }
 

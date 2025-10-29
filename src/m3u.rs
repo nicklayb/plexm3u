@@ -14,6 +14,10 @@ impl M3U {
     pub fn new(tracks: Vec<Item>, metadata: Vec<Metadata>) -> M3U {
         M3U { tracks, metadata }
     }
+
+    pub fn rating_key(&self) -> Option<&Metadata> {
+        self.metadata.iter().find(|meta| meta.is_rating_key())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -88,6 +92,13 @@ impl Metadata {
     pub fn is_title(&self) -> bool {
         match self {
             Self::Title(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_rating_key(&self) -> bool {
+        match self {
+            Self::RatingKey(_) => true,
             _ => false,
         }
     }
