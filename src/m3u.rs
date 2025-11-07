@@ -18,6 +18,14 @@ impl M3U {
     pub fn rating_key(&self) -> Option<&Metadata> {
         self.metadata.iter().find(|meta| meta.is_rating_key())
     }
+
+    pub fn rewrite_to(&self) -> Option<&Metadata> {
+        self.metadata.iter().find(|meta| meta.is_rewrite_to())
+    }
+
+    pub fn rewrite_from(&self) -> Option<&Metadata> {
+        self.metadata.iter().find(|meta| meta.is_rewrite_from())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -92,6 +100,20 @@ impl Metadata {
     pub fn is_title(&self) -> bool {
         match self {
             Self::Title(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_rewrite_to(&self) -> bool {
+        match self {
+            Self::RewriteTo(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_rewrite_from(&self) -> bool {
+        match self {
+            Self::RewriteFrom(_) => true,
             _ => false,
         }
     }

@@ -79,7 +79,7 @@ struct VerifyM3uArguments {
 struct SyncArguments {
     rating_keys_or_file: Vec<String>,
     #[arg(long, short)]
-    path: String,
+    path: Option<String>,
     #[arg(short, long)]
     server: String,
     #[arg(short, long)]
@@ -135,24 +135,53 @@ fn main() {
 
 fn sync(arguments: SyncArguments) {
     let plex_client = PlexClient::new(arguments.server.clone(), arguments.token.clone());
-    for rating_key in arguments.rating_keys_or_file.clone() {
-        if rating_key.to_lowercase().ends_with(".m3u") {
-            if let Ok(file) = m3u::read(&rating_key)
+    for raw_rating_key in arguments.rating_keys_or_file.clone() {
+        if raw_rating_key.to_lowercase().ends_with(".m3u") {
+            if let Ok(file) = m3u::read(&raw_rating_key)
                 && let Some(Metadata::RatingKey(rating_key)) = file.rating_key()
             {
+                let mut updated_arguments = arguments.clone();
+                if let Some(Metadata::RewriteFrom(rewrite_from)) = file.rewrite_from() {
+                    updated_arguments.rewrite_from = updated_arguments
+                        .rewrite_from
+                        .or(Some(rewrite_from.clone()));
+                }
+                if let Some(Metadata::RewriteTo(rewrite_to)) = file.rewrite_to() {
+                    updated_arguments.rewrite_to =
+                        updated_arguments.rewrite_to.or(Some(rewrite_to.clone()));
+                }
+                if let None = updated_arguments.path
+                    && let Ok(default_path) = fs::canonicalize(raw_rating_key)
+                {
+                    let root_path = arguments
+                        .path
+                        .as_deref()
+                        .map(Path::new)
+                        .unwrap_or_else(|| Path::new(&default_path).parent().unwrap());
+                    updated_arguments.path = Some(root_path.display().to_string());
+                }
                 sync_playlist(
                     plex_client.clone(),
                     rating_key.to_string(),
-                    arguments.clone(),
+                    updated_arguments,
                 )
             } else {
                 error!(
                     "Unable to read {}, check if file exists and has a Rating key",
-                    rating_key.clone()
+                    raw_rating_key.clone()
                 )
             }
         } else {
-            sync_playlist(plex_client.clone(), rating_key, arguments.clone())
+            let mut updated_arguments = arguments.clone();
+            if let None = updated_arguments.path {
+                updated_arguments.path = Some("./".to_string());
+            }
+
+            sync_playlist(
+                plex_client.clone(),
+                raw_rating_key,
+                updated_arguments.clone(),
+            )
         }
     }
 }
@@ -166,14 +195,14 @@ fn sync_playlist(plex_client: PlexClient, rating_key: String, arguments: SyncArg
             rating_key: rating_key.clone(),
             rewrite_from: arguments.rewrite_from.clone(),
             rewrite_to: arguments.rewrite_to.clone(),
-            file: Some(arguments.path.clone()),
+            file: arguments.path.clone(),
             stdout: false,
         },
     );
     match destination_file {
         Some(file) => verify_m3u(VerifyM3uArguments {
             file: file,
-            path: None,
+            path: arguments.path,
             fix: arguments.fix,
             server: Some(arguments.server.clone()),
             token: arguments.token.clone(),
