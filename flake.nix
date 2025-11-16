@@ -30,21 +30,8 @@
           direnv
           openssl
         ];
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          inherit nativeBuildInputs buildInputs;
-          
-          shellHook = ''
-            export RUST_BACKTRACE=1
-            eval "$(direnv hook bash)"
-            direnv allow
-          '';
 
-          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [];
-        };
-
-        packages.default = pkgs.rustPlatform.buildRustPackage {
+        defaultPackage = pkgs.rustPlatform.buildRustPackage {
           pname = "plexm3u";
           version = "0.1.0";
           
@@ -64,6 +51,30 @@
             platforms = platforms.linux;
             mainProgram = "plexm3u";
           };
+        };
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          inherit nativeBuildInputs buildInputs;
+          
+          shellHook = ''
+            export RUST_BACKTRACE=1
+            eval "$(direnv hook bash)"
+            direnv allow
+          '';
+
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [];
+        };
+
+        packages.default = defaultPackage;
+
+        packages.container = pkgs.dockerTools.buildImage {
+          name = "plexm3u";
+          tag = "latest";
+          contents = [defaultPackage];
+        };
+        config = {
+          Cmd = ["${defaultPackage}/bin/plexm3u"];
         };
         
         packages.palet = self.packages.${system}.default;
