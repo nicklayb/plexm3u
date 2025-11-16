@@ -71,10 +71,13 @@
         packages.container = pkgs.dockerTools.buildImage {
           name = "plexm3u";
           tag = "latest";
-          contents = [defaultPackage];
-        };
-        config = {
-          Cmd = ["${defaultPackage}/bin/plexm3u"];
+          created = "now";
+          config = {
+            Entrypoint = ["${defaultPackage}/bin/plexm3u"];
+            Env = [
+              "PATH=${defaultPackage}/bin:$PATH"
+            ];
+          };
         };
         
         packages.palet = self.packages.${system}.default;

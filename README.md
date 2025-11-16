@@ -4,7 +4,32 @@ Client that generates M3U playlist from a Plex server. Keep one playlist source 
 
 Works for both video and audio!
 
-## Recommended usage
+## Usage
+
+### Docker
+
+A docker image exist in the wild at `nboisvert/plexm3u`. 
+
+```bash
+docker run nboisvert/plexm3u --help
+```
+
+### Nix flake
+
+I'm exposing a Nix Flake (actually everything is built with Nix here), so you can do like me and include it in your NixOS's configuration to have it installed.
+
+
+### Build from source
+
+The project is a Rust project so, assuming you have the right toolchain, you can pull the repo and run `cargo build` to build the project (or `cargo run` if you just want to run it as one off).
+
+#### OS support
+
+Right now, this project has only been tested using x86_64 linux host. I haven't tested macOS or aarch linuxes. While the flake is using a `eachDefaultSystem`, I'm expecting it would work as well on other platform but it has not been tested.
+
+As for Windows, it's not tested either, won't be tested either and I'm not guaranteeing any support for it. Simply because I don't have (want) a Windows computer at home. If anyone wants to support it, you're welcome to contribute to the repo but it must not compromise other OS support.
+
+## Recommendation to properly sync
 
 What I recommend to do (if like me you wanna sync all your library), is the following:
 
