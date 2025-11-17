@@ -79,6 +79,32 @@
             ];
           };
         };
+        packages.container-cron = pkgs.dockerTools.buildImage {
+          name = "plexm3u-cron";
+          created = "now";
+          tag = "latest";
+          
+          contents = [
+            defaultPackage
+            pkgs.supercronic
+            (pkgs.runCommand "scripts" {
+                buildInputs = [];
+              } ''
+                mkdir -p $out/usr/local/bin
+                for file in ${./scripts}/*; do
+                  cp "$file" $out/usr/local/bin/
+                  chmod +x $out/usr/local/bin/$(basename $file)
+                done
+              '')
+          ];
+          
+          config = {
+            Cmd = [ "start_cron.sh" ];
+            Env = [
+              "PATH=${defaultPackage}/bin:$PATH"
+            ];
+          };
+        };
         
         packages.palet = self.packages.${system}.default;
       });

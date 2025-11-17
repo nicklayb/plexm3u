@@ -23,6 +23,26 @@ I'm exposing a Nix Flake (actually everything is built with Nix here), so you ca
 
 The project is a Rust project so, assuming you have the right toolchain, you can pull the repo and run `cargo build` to build the project (or `cargo run` if you just want to run it as one off).
 
+### Cron docker image for syncing
+
+I also provided a cron image that can dump playlists on a scheduled basis. You can use it in a docker compose like:
+
+
+```yaml
+services:
+	plexm3u-cron:
+		image: nboisvert/plexm3u-cron
+		environment:
+			CRON: * * /1 * * * *
+			PLEX_SERVER: http://my.server.com
+			PLEX_TOKEN: some token
+			DESTINATION: /data
+		volumes:
+			- ./playlists:/data
+```
+
+By default, **all** playlists will be fetched and dumped locally but you can add a `PLAYLISTS` env variable with playlists's rating key separated by a space (like `123 543 102984`) to only pull a subset.
+
 #### OS support
 
 Right now, this project has only been tested using x86_64 linux host. I haven't tested macOS or aarch linuxes. While the flake is using a `eachDefaultSystem`, I'm expecting it would work as well on other platform but it has not been tested.
