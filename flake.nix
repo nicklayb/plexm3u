@@ -43,6 +43,8 @@
         defaultPackage = pkgs.rustPlatform.buildRustPackage {
           pname = "plexm3u";
 
+          version = "0.2.0";
+
           src = ./.;
           cargoBuildOptions = [ "--release" ];
           buildTarget = "x86_64-unknown-linux-musl";
