@@ -1,5 +1,5 @@
 {
-  description = "Palet - A Rust GTK application";
+  description = "Plexm3u";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -7,8 +7,15 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, rust-overlay, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      rust-overlay,
+      flake-utils,
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs {
@@ -16,33 +23,36 @@
         };
 
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
-          extensions = [ "rust-src" "rustfmt" "clippy" ];
+          extensions = [
+            "rust-src"
+            "rustfmt"
+            "clippy"
+          ];
         };
 
         nativeBuildInputs = with pkgs; [
           rustToolchain
           rust-analyzer
           pkg-config
-          wrapGAppsHook4
         ];
 
         buildInputs = with pkgs; [
-          direnv
           openssl
         ];
 
         defaultPackage = pkgs.rustPlatform.buildRustPackage {
           pname = "plexm3u";
-          version = "0.1.0";
-          
+
           src = ./.;
-          
+          cargoBuildOptions = [ "--release" ];
+          buildTarget = "x86_64-unknown-linux-musl";
+
           cargoLock = {
             lockFile = ./Cargo.lock;
           };
-          
+
           inherit nativeBuildInputs buildInputs;
-          
+
           meta = with pkgs.lib; {
             description = "";
             homepage = "https://github.com/nicklayb/plexm3u";
@@ -55,31 +65,38 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          inherit nativeBuildInputs buildInputs;
-          
+          inherit nativeBuildInputs;
+
+          buildInputs = buildInputs ++ [
+            pkgs.direnv
+            pkgs.just
+          ];
+
           shellHook = ''
             export RUST_BACKTRACE=1
             eval "$(direnv hook bash)"
             direnv allow
           '';
 
-          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [];
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ ];
         };
 
         packages.default = defaultPackage;
 
-        packages.container = pkgs.dockerTools.buildImage {
+        packages.container = pkgs.dockerTools.buildLayeredImage {
           name = "plexm3u";
           tag = "latest";
           created = "now";
+          contents = [ defaultPackage ];
           config = {
-            Entrypoint = ["${defaultPackage}/bin/plexm3u"];
+            Entrypoint = [ "${defaultPackage}/bin/plexm3u" ];
             Env = [
               "PATH=${defaultPackage}/bin:$PATH"
             ];
           };
         };
-        
-        packages.palet = self.packages.${system}.default;
-      });
+
+        packages.plexm3u = self.packages.${system}.default;
+      }
+    );
 }

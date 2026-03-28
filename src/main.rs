@@ -295,10 +295,19 @@ fn dump_playlist(plex_client: PlexClient, arguments: DumpPlaylistArguments) -> O
     let container = plex_client.get_playlist(arguments.rating_key.clone());
     let tracks =
         container.track_files(arguments.rewrite_from.clone(), arguments.rewrite_to.clone());
-    if arguments.stdout {
-        for track in tracks.clone() {
-            println!("{:?}", track);
-        }
+    let mut metadata = container.metadata();
+    if let Some(rewrite_from) = arguments.rewrite_from {
+        metadata.push(m3u::Metadata::RewriteFrom(rewrite_from.clone()))
+    }
+    if let Some(rewrite_to) = arguments.rewrite_to {
+        metadata.push(m3u::Metadata::RewriteTo(rewrite_to.clone()))
+    }
+
+    let m3u = M3U::new(tracks.clone(), metadata);
+    if arguments.stdout
+        && let Ok(string) = m3u.to_string()
+    {
+        println!("{}", string);
     }
     if let Some(file) = arguments.file {
         let destination_folder = Path::new(&file);
@@ -310,16 +319,7 @@ fn dump_playlist(plex_client: PlexClient, arguments: DumpPlaylistArguments) -> O
             destination_folder.to_path_buf()
         };
         println!("Writing {:?}", destination_file);
-        let mut metadata = container.metadata();
-        if let Some(rewrite_from) = arguments.rewrite_from {
-            metadata.push(m3u::Metadata::RewriteFrom(rewrite_from.clone()))
-        }
-        if let Some(rewrite_to) = arguments.rewrite_to {
-            metadata.push(m3u::Metadata::RewriteTo(rewrite_to.clone()))
-        }
-
-        let m3u = M3U::new(tracks.clone(), metadata);
-        if let Err(error) = m3u::write(destination_file.clone(), m3u) {
+        if let Err(error) = m3u.write_file(destination_file.clone()) {
             panic!("Error writing {:?}: {}", destination_file, error);
         }
         destination_file.to_str().map(|str| str.to_string())
