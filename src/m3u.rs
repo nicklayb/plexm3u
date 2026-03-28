@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::io::{self, prelude::*};
 use std::path::PathBuf;
 use std::{fs::File, path::Path};
@@ -25,6 +26,36 @@ impl M3U {
 
     pub fn rewrite_from(&self) -> Option<&Metadata> {
         self.metadata.iter().find(|meta| meta.is_rewrite_from())
+    }
+    pub fn write_file<P: AsRef<Path>>(&self, filename: P) -> std::io::Result<()> {
+        let file = File::create(filename)?;
+        self.write(file)
+    }
+    pub fn to_string(&self) -> std::io::Result<String> {
+        let mut buffer = Vec::new();
+        self.write(&mut buffer)?;
+        Ok(String::from_utf8(buffer).unwrap())
+    }
+
+    fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {
+        writeln!(writer, "{}", HEADER_LINE)?;
+
+        for meta in &self.metadata {
+            writeln!(writer, "#{}", meta.format().to_string())?;
+        }
+
+        if let Some(Metadata::Title(title)) = self.metadata.iter().find(|meta| meta.is_title()) {
+            writeln!(writer, "#PLAYLIST:{}", title)?;
+        }
+
+        for line in &self.tracks {
+            for meta in &line.metadata {
+                writeln!(writer, "#{}", meta.format().to_string())?;
+            }
+            writeln!(writer, "{}", line.path)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -175,24 +206,6 @@ impl Item {
             _ => None,
         }
     }
-}
-
-pub fn write<P: AsRef<Path>>(filename: P, m3u: M3U) -> std::io::Result<()> {
-    let mut file = File::create(filename)?;
-    writeln!(file, "{}", HEADER_LINE)?;
-    for meta in m3u.metadata.iter().clone() {
-        writeln!(file, "#{}", meta.format().to_string())?;
-    }
-    if let Some(Metadata::Title(title)) = m3u.metadata.iter().find(|meta| meta.is_title()) {
-        writeln!(file, "#PLAYLIST:{}", title)?;
-    }
-    for line in m3u.tracks {
-        for meta in line.metadata {
-            writeln!(file, "#{}", meta.format().to_string())?;
-        }
-        writeln!(file, "{}", line.path)?;
-    }
-    Ok(())
 }
 
 pub fn read<P: AsRef<Path>>(filename: P) -> std::io::Result<M3U> {
